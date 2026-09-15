@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- ANONYMOUS REVIEW VERSION.
+       No author names, affiliations, lab names, personal GitHub handles, course codes,
+       server names or analytics trackers may appear anywhere in this directory.
+       Search the whole folder for those strings before every deploy. -->
+
+  <meta name="title" content="DexOrient: Proprioceptive In-Hand Object Reorientation with Precise Command Following">
+  <meta name="description" content="A two-stage sim-to-real policy rotates an in-hand object to a commanded angle on a 16-DoF LEAP Hand and stops there without any object-pose sensor, using a learned rotation estimator on joint proprioception alone.">
+  <meta name="keywords" content="dexterous manipulation, in-hand rotation, goal-conditioned, sim-to-real, rapid motor adaptation, LEAP Hand, reinforcement learning, proprioception">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="language" content="English">
+
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="DexOrient: Proprioceptive In-Hand Object Reorientation with Precise Command Following">
+  <meta property="og:description" content="Rotate an in-hand object to a commanded angle and stop there, with no object-pose sensor, on a 16-DoF LEAP Hand.">
+  <meta property="og:image" content="static/images/fig1_teaser.png">
+
+  <title>DexOrient</title>
+
+  <link rel="icon" type="image/x-icon" href="static/images/favicon.ico">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="static/css/bulma.min.css">
+  <link rel="stylesheet" href="static/css/bulma-carousel.min.css">
+  <link rel="stylesheet" href="static/css/bulma-slider.min.css">
+  <link rel="stylesheet" href="static/css/fontawesome.all.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+  <link rel="stylesheet" href="static/css/index.css">
+
+  <script defer src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script defer src="static/js/fontawesome.all.min.js"></script>
+  <script defer src="static/js/bulma-carousel.min.js"></script>
+  <script defer src="static/js/bulma-slider.min.js"></script>
+  <script defer src="static/js/index.js"></script>
+
+  <style>
+    /* Project-specific additions on top of the template CSS. */
+    .anon-banner {
+      background: #fff8e1;
+      border-bottom: 1px solid #f0d78c;
+      color: #6b5300;
+      font-size: 0.9rem;
+      padding: 0.5rem 1rem;
+      text-align: center;
+    }
+    .teaser-placeholder {
+      aspect-ratio: 16 / 9;
+      width: 100%;
+      border: 2px dashed #b5b5b5;
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #7a7a7a;
+      background: #fafafa;
+      gap: 0.5rem;
+    }
+    .teaser-placeholder i { font-size: 2.5rem; }
+    .pipeline {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+      margin: 1.5rem 0;
+    }
+    @media (max-width: 768px) { .pipeline { grid-template-columns: 1fr; } }
+    .pipeline .step {
+      border: 1px solid #dbdbdb;
+      border-radius: 12px;
+      padding: 1.25rem;
+      background: #fff;
+    }
+    .pipeline .step .num {
+      display: inline-block;
+      width: 1.9rem; height: 1.9rem; line-height: 1.9rem;
+      border-radius: 50%;
+      background: #2563eb; color: #fff;
+      text-align: center; font-weight: 700;
+      margin-bottom: 0.5rem;
+    }
+    .pipeline .step h4 { margin: 0.25rem 0 0.5rem; font-size: 1.05rem; }
+    .pipeline .step p { font-size: 0.93rem; margin: 0; }
+    /* Two-line title: line 1 ends after "Reorientation". Slightly smaller than the
+       template's 3rem so the first line fits on one row at desktop widths. */
+    .title.is-1.publication-title { font-size: 2.25rem; line-height: 1.2; }
+    .publication-title .title-line { white-space: nowrap; }
+    @media (max-width: 1087px) {
+      .title.is-1.publication-title { font-size: 2rem; }
+      .publication-title .title-line { white-space: normal; }
+    }
+    .paper-figure { margin: 0; }
+    .paper-figure img { display: block; width: 100%; height: auto; border-radius: 8px; }
+    .paper-figure .figure-caption { text-align: left; margin-top: 0.75rem; }
+    .paper-figure.strip { margin-top: 1.25rem; }
+    .paper-figure.strip .figure-caption { margin-top: 0.4rem; }
+    #method .paper-figure { margin-bottom: 2rem; }
+    /* Real-robot clip grids */
+    .video-grid { display: grid; gap: 1rem; margin-top: 1rem; }
+    .video-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+    .video-grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
+    @media (max-width: 768px) {
+      .video-grid.cols-3 { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 480px) {
+      .video-grid.cols-3, .video-grid.cols-2 { grid-template-columns: 1fr; }
+    }
+    .video-cell { margin: 0; }
+    .video-cell video, .video-cell .video-placeholder {
+      display: block; width: 100%; aspect-ratio: 4 / 3;
+      border-radius: 8px; background: #111; object-fit: cover;
+    }
+    .video-cell figcaption {
+      text-align: center; font-size: 0.9rem; font-weight: 600; color: #363636;
+      margin-top: 0.4rem;
+    }
+    .video-cell .video-placeholder {
+      border: 2px dashed #b5b5b5; background: #fafafa; color: #7a7a7a;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 0.4rem; font-size: 0.85rem; text-align: center; padding: 0.5rem;
+    }
+    .video-cell .video-placeholder i { font-size: 2rem; }
+    /* Explicit vs implicit encoding cards */
+    .enc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem; }
+    @media (max-width: 900px) { .enc-grid { grid-template-columns: 1fr; } }
+    .enc-card { border: 1px solid #dbdbdb; border-radius: 12px; padding: 1.1rem 1.25rem; background: #fff; }
+    .enc-card h4 { font-size: 1.1rem; font-weight: 700; margin: 0 0 0.75rem; display: flex; align-items: center; gap: 0.5rem; }
+    .enc-explicit { border-color: #2563eb; box-shadow: 0 0 0 2px rgba(37,99,235,0.12); }
+    .enc-diagram { display: flex; flex-direction: column; gap: 0.45rem; font-size: 0.82rem; margin-bottom: 0.75rem; }
+    .enc-row { display: grid; grid-template-columns: minmax(0,1.3fr) auto minmax(0,1.2fr) auto minmax(0,1fr); align-items: center; gap: 0.35rem; }
+    .enc-row > span { min-width: 0; }
+    .enc-in { color: #4a4a4a; }
+    .enc-in small { color: #7a7a7a; }
+    .enc-arrow { color: #b5b5b5; font-size: 1rem; }
+    .enc-box { border: 1px solid #b5b5b5; border-radius: 6px; padding: 0.3rem 0.5rem; text-align: center; background: #f5f5f5; }
+    .enc-est { border-color: #2563eb; background: #eaf0fe; color: #1e40af; font-weight: 600; }
+    .enc-pi { background: #363636; color: #fff; border-color: #363636; font-weight: 600; }
+    .enc-lat { font-weight: 600; color: #363636; }
+    .enc-ghost .enc-box { border-style: dashed; color: #8a1c1c; background: #fff5f5; border-color: #e0a0a0; }
+    .enc-actor { border-top: 1px dashed #dbdbdb; padding-top: 0.45rem; }
+    .enc-card p { font-size: 0.9rem; color: #4a4a4a; margin: 0; }
+    .probe-table { margin: 0.75rem 0 0.5rem; }
+    .probe-table th:first-child, .probe-table td:first-child { text-align: left; }
+    .metrics-table { font-size: 0.9rem; }
+    .metrics-table th, .metrics-table td { text-align: right; white-space: nowrap; }
+    .metrics-table th:first-child, .metrics-table td:first-child { text-align: left; }
+    .metrics-table tfoot td { font-weight: 600; }
+    .kpi-row { display: flex; flex-wrap: wrap; gap: 1rem; justify-content: center; margin: 1rem 0 2rem; }
+    .kpi {
+      flex: 1 1 160px; max-width: 220px;
+      border: 1px solid #dbdbdb; border-radius: 12px;
+      padding: 1rem; text-align: center; background: #fff;
+    }
+    .kpi .val { font-size: 1.9rem; font-weight: 800; color: #2563eb; line-height: 1.1; }
+    .kpi .lab { font-size: 0.85rem; color: #555; margin-top: 0.25rem; }
+    .todo {
+      display: inline-block;
+      background: #ffe3e3; color: #8a1c1c;
+      border-radius: 6px; padding: 0 0.4rem;
+      font-size: 0.8rem; font-weight: 600; vertical-align: middle;
+    }
+    .figure-caption { font-size: 0.9rem; color: #555; margin-top: 0.5rem; }
+  </style>
+</head>
+<body>
+
+  <div class="anon-banner">
+    <i class="fas fa-user-secret"></i>&nbsp;
+    Anonymous project page for a submission under double-anonymous review (ICRA 2027).
+    Author information is withheld until the review process concludes.
+  </div>
+
+  <button class="scroll-to-top" onclick="scrollToTop()" title="Scroll to top" aria-label="Scroll to top">
+    <i class="fas fa-chevron-up"></i>
+  </button>
+
+  <main id="main-content">
+
+  <!-- ===================== Hero ===================== -->
+  <section class="hero">
+    <div class="hero-body">
+      <div class="container is-max-widescreen">
+        <div class="columns is-centered">
+          <div class="column has-text-centered">
+            <h1 class="title is-1 publication-title">
+              <span class="title-line">DexOrient: Proprioceptive In-Hand Object Reorientation</span><br>
+              <span class="title-line">with Precise Command Following</span>
+            </h1>
+
+            <div class="is-size-5 publication-authors">
+              <span class="author-block">Anonymous Authors</span>
+            </div>
+            <div class="is-size-5 publication-authors">
+              <span class="author-block">Under review, IEEE ICRA 2027</span>
+            </div>
+
+            <div class="column has-text-centered">
+              <div class="publication-links">
+                <!-- Paper button: disabled until static/pdfs/paper.pdf exists (a dead link on a
+                     live page looks worse than no button). To enable, uncomment this block.
+                <span class="link-block">
+                  <a href="static/pdfs/paper.pdf" target="_blank"
+                     class="external-link button is-normal is-rounded is-dark">
+                    <span class="icon"><i class="fas fa-file-pdf"></i></span>
+                    <span>Paper</span>
+                  </a>
+                </span>
+                -->
+
+                <!-- Code: released after the review process. Replace the disabled button with a
+                     real link (anonymized during review, real repo after acceptance) when ready. -->
+                <span class="link-block">
+                  <span class="button is-normal is-rounded is-dark" disabled
+                        title="Code and checkpoints will be released upon publication">
+                    <span class="icon"><i class="fab fa-github"></i></span>
+                    <span>Code (coming soon)</span>
+                  </span>
+                </span>
+
+                <!-- Video: local file only. Do not use a YouTube account that can be traced to an author. -->
+                <span class="link-block">
+                  <a href="#real-robot"
+                     class="external-link button is-normal is-rounded is-dark">
+                    <span class="icon"><i class="fas fa-video"></i></span>
+                    <span>Videos</span>
+                  </a>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== Teaser =====================
+       Hidden on the live page until static/videos/teaser.mp4 exists. To enable: put the file in
+       place, delete this comment wrapper, and replace the placeholder div with the <video> tag
+       below. -->
+  <section class="hero teaser" id="video" hidden>
+    <div class="container is-max-desktop">
+      <div class="hero-body">
+        <!-- Replace the placeholder with:
+             <video id="teaser" autoplay controls muted loop playsinline preload="metadata">
+               <source src="static/videos/teaser.mp4" type="video/mp4">
+             </video>
+             Suggested content: real LEAP Hand, commands 45 / 90 / 180 deg, overlay of
+             commanded vs. estimated angle, then the hand freezes on the estimator's stop. -->
+        <div class="teaser-placeholder">
+          <i class="fas fa-film"></i>
+          <span><strong>Teaser video</strong> &mdash; <span class="todo">TODO</span> static/videos/teaser.mp4</span>
+          <span style="font-size:0.85rem">Real-hand rollouts at 45&deg;, 90&deg; and 180&deg;, stopped by the rotation estimator. No faces, no lab background, no logos.</span>
+        </div>
+        <h2 class="subtitle has-text-centered" style="margin-top:1rem">
+          Told to turn the object by <em>N</em> degrees, the LEAP Hand turns it by <em>N</em> degrees and stops,
+          using nothing but its own joint readings.
+        </h2>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== Abstract ===================== -->
+  <section class="section hero is-light">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered has-text-centered">
+        <div class="column is-four-fifths">
+          <h2 class="title is-3">Abstract</h2>
+          <div class="content has-text-justified">
+            <!-- DRAFT: the paper's abstract is not written yet; this is assembled from the
+                 introduction and conclusion of the current draft. Replace with the final abstract. -->
+            <p>
+              Proprioception alone has been shown to sustain in-hand rotation across diverse objects
+              and to reach a small set of discrete goal orientations. Precisely tracking and stopping
+              at an <strong>arbitrary, continuous-valued commanded angle</strong> without any external
+              observation of the object has remained open.
+            </p>
+            <p>
+              <strong>DexOrient</strong> is a proprioception-only framework for goal-conditioned
+              in-hand yaw reorientation. Unlike continuous rotation, which depends mainly on object and
+              contact properties, reaching an arbitrary target additionally requires tracking rotation
+              progress from the moment the command is issued, a relative quantity that stays
+              well-defined even when the object's absolute pose is ambiguous. DexOrient estimates the
+              two signals separately: object context is distilled from privileged simulation state by an
+              RMA-style adaptor, while rotation progress is tracked <em>explicitly</em> by a GRU
+              estimator that predicts per-step yaw increments and integrates them from command onset.
+              Because sim-to-real error accumulates over a command, the estimator is further refined on
+              real-robot trajectories.
+            </p>
+            <p>
+              Deployed on an open-source 16-DoF LEAP Hand, DexOrient achieves <strong>82.0% success over
+              200 continuous-valued commands from 22.5&deg; to 180&deg;</strong> (fitted slope 0.909),
+              against 100% when progress is supplied by a vision oracle. Explicitly separating progress
+              from object context roughly doubles real-world success over an implicit encoding, and a
+              latent analysis shows why: an implicit latent spends its capacity on progress at the
+              expense of object context. The system also handles everyday objects and stays
+              stable under shifted mass and external disturbances.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== Overview figure (paper Fig. 1) ===================== -->
+  <section class="section" id="overview">
+    <div class="container is-max-desktop">
+      <figure class="paper-figure">
+        <img src="static/images/fig1_teaser.png"
+             alt="DexOrient overview: experimental setup, 180-degree reorientation, generalization to diverse objects, shifted mass distribution, and palm-offset recovery"
+             loading="lazy">
+        <figcaption class="figure-caption">
+          <strong>DexOrient enables robust real-world in-hand reorientation.</strong>
+          (a) Experimental setup with a 16-DoF LEAP Hand and overhead camera.
+          (b) Goal-conditioned 180&deg; object reorientation.
+          (c) Generalization across diverse objects.
+          (d) Robust rotation under shifted mass distribution.
+          (e) Recovery from palm-offset disturbances.
+        </figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ===================== Method ===================== -->
+  <section class="section" id="method">
+    <div class="container is-max-desktop">
+      <h2 class="title is-3 has-text-centered">How DexOrient Works</h2>
+
+      <figure class="paper-figure">
+        <img src="static/images/fig2_architecture.png"
+             alt="DexOrient system architecture and staged training workflow"
+             loading="lazy">
+        <figcaption class="figure-caption">
+          <strong>System architecture and staged training workflow.</strong>
+          Yellow and blue backgrounds denote real-world and simulation-side deployment, respectively,
+          and red arrows indicate supervised learning.
+          (a) Final real-world deployment architecture, where the base policy uses proprioception, the
+          context latent, the commanded angle, and estimated rotation progress.
+          (b) Stage-1 training learns the base policy in simulation, with a privileged encoder mapping
+          object information to <em>z<sub>t</sub></em>.
+          (c) Stage-2 context adaptation follows an RMA-style teacher&ndash;student procedure, training
+          the adaptor to infer <em>&#7825;<sub>t</sub></em> from proprioceptive history while the base
+          policy is fixed.
+          (d) The rotation estimator is refined on policy using real-world supervision for
+          proprioceptive progress estimation.
+        </figcaption>
+      </figure>
+
+      <div class="pipeline">
+        <div class="step">
+          <span class="num">1</span>
+          <h4>Base policy with privileged context</h4>
+          <p>A goal-conditioned actor is trained with PPO in simulation on cylinders. Its observation
+             is a short window of joint positions and joint targets, the commanded angle
+             <em>&theta;<sub>cmd</sub></em>, the rotation progress <em>&phi;<sub>t</sub></em>, and a
+             context latent <em>z<sub>t</sub></em> produced by a privileged encoder from object
+             position, scale, mass, friction and centre-of-mass offset. Progress is deliberately kept
+             <em>out</em> of the privileged vector, so the latent describes the object, not the
+             motion. Domain randomization covers scale, mass, centre of mass, friction, and joint
+             stiffness and damping.</p>
+        </div>
+        <div class="step">
+          <span class="num">2</span>
+          <h4>Object-property adaptor (RMA)</h4>
+          <p>Object properties shape the contact dynamics but are not measurable on hardware. A
+             stateless temporal-convolutional adaptor infers the context latent
+             <em>&#7825;<sub>t</sub></em> from a 30-frame proprioceptive history, trained by
+             supervised regression to the teacher latent while the actor and encoder stay frozen.
+             Rollouts use the student's own actions so training sees the deployable state
+             distribution.</p>
+        </div>
+        <div class="step">
+          <span class="num">3</span>
+          <h4>Rotation-progress estimator</h4>
+          <p>A two-layer GRU with a fixed 8-frame window predicts the signed yaw increment of the
+             last control step from the same proprioceptive frame; an external integrator sums the
+             increments from command onset to give <em>&phi;&#770;<sub>t</sub></em>, which the actor
+             uses to decelerate and stop. The estimator is pretrained with overhead-camera
+             supervision and then fine-tuned on trajectories where its own estimate drives the
+             frozen policy, correcting the drift that sim-to-real error would otherwise
+             accumulate.</p>
+        </div>
+      </div>
+
+      <h3 class="title is-5" style="margin-top:1.5rem">Evaluation protocol</h3>
+      <div class="content">
+        <ul>
+          <li><strong>Commands</strong> are sampled uniformly from [22.5&deg;, 180&deg;]. Simulation
+              uses 8,192 commands with a 200-step budget; hardware uses 200 commands with a fixed
+              control-step budget.</li>
+          <li><strong>Success</strong>: the settled achieved angle
+              <em>&theta;<sub>ach</sub></em> stays within 20&deg; of the command for at least 10
+              consecutive control steps. We also report on-target rates at 10&deg; and 15&deg;, the
+              median terminal error, and the slope and R&sup2; of a least-squares fit of
+              <em>&theta;<sub>ach</sub></em> on <em>&theta;<sub>cmd</sub></em>.</li>
+          <li><strong>Ground truth</strong> on hardware comes from an overhead RGB camera tracking a
+              dark arrow on the object's top face. It is used only for estimator training and
+              evaluation, never by the deployed policy.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== Results ===================== -->
+  <section class="section hero is-light" id="results">
+    <div class="container is-max-desktop">
+      <h2 class="title is-3 has-text-centered">Command Tracking on the Real Hand</h2>
+
+      <div class="kpi-row">
+        <div class="kpi"><div class="val">82.0%</div><div class="lab">deployed, proprioception only<br>200 commands, 22.5&deg;&ndash;180&deg;</div></div>
+        <div class="kpi"><div class="val">100%</div><div class="lab">same policy, progress from<br>vision oracle</div></div>
+        <div class="kpi"><div class="val">0.909</div><div class="lab">fitted slope<br>&theta;<sub>ach</sub> vs. &theta;<sub>cmd</sub> (R&sup2; 0.880)</div></div>
+        <div class="kpi"><div class="val">&minus;2.9&deg;</div><div class="lab">median terminal error</div></div>
+      </div>
+
+      <figure class="paper-figure">
+        <img src="static/images/fig3_results.png"
+             alt="Command tracking performance: vision oracle, deployed policy, and rotation-estimator benchmark"
+             loading="lazy">
+        <figcaption class="figure-caption">
+          <strong>Command tracking performance and estimator error.</strong>
+          (a) Vision oracle: the deployed actor and adaptor, with ground-truth progress supplied by the
+          camera (100% success, slope 0.995, R&sup2; 0.997). The base policy and context branch are not
+          the bottleneck.
+          (b) Deployed policy: the full proprioception-only system with progress from the learned
+          rotation estimator, one point per command (82.0% success). The gap to (a) is attributable to
+          rotation-progress estimation.
+          (c) Rotation-estimator benchmark: success rate of the learned estimator against two
+          closed-form linear baselines fitted on the same data, scored on held-out hardware sessions.
+          The per-step accuracy of the baselines is similar; what the learned module supplies is
+          errors that do not accumulate.
+        </figcaption>
+      </figure>
+
+      <figure class="paper-figure" style="margin-top:2rem">
+        <img src="static/images/fig4_progress.jpg"
+             alt="Frames and progress traces of a 60-degree and a 150-degree command"
+             loading="lazy">
+        <figcaption class="figure-caption">
+          <strong>Reorientation of a cylinder with precise command tracking.</strong>
+          A small-angle (60&deg;, top) and a large-angle (150&deg;, bottom) trial. Frames are labelled
+          with camera-measured and estimator-predicted progress; the traces below show both signals
+          against time with the command as the dashed line.
+        </figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ===================== Explicit vs. implicit ===================== -->
+  <section class="section" id="encoding">
+    <div class="container is-max-desktop">
+      <h2 class="title is-3 has-text-centered">Explicit vs. Implicit Encoding of Rotation Progress</h2>
+      <p class="content has-text-justified">
+        The deployable actor needs two partially observed quantities: <em>what</em> object it is
+        holding (context) and <em>how far</em> it has already turned since the command (progress).
+        Where should progress live? We compare our <strong>explicit</strong> design, in which a
+        dedicated estimator predicts progress and feeds it straight to the actor, against an
+        <strong>implicit</strong> design that appends progress to the privileged state, so a single
+        8-dimensional latent must carry object context and progress together and the adaptor must
+        recover both from proprioceptive history.
+      </p>
+
+      <div class="enc-grid">
+        <div class="enc-card enc-explicit">
+          <h4>Explicit <span class="tag is-info is-light">ours</span></h4>
+          <div class="enc-diagram">
+            <div class="enc-row"><span class="enc-in">privileged state <em>p<sub>t</sub></em><br><small>position, scale, mass, friction, CoM</small></span><span class="enc-arrow">&rarr;</span><span class="enc-box">encoder / adaptor</span><span class="enc-arrow">&rarr;</span><span class="enc-lat">context latent <em>z<sub>t</sub></em></span></div>
+            <div class="enc-row"><span class="enc-in">proprio window (8 frames)</span><span class="enc-arrow">&rarr;</span><span class="enc-box enc-est">GRU estimator + integrator</span><span class="enc-arrow">&rarr;</span><span class="enc-lat">progress <em>&phi;&#770;<sub>t</sub></em></span></div>
+            <div class="enc-row enc-actor"><span class="enc-in">proprio, <em>&theta;<sub>cmd</sub></em>, <em>z<sub>t</sub></em>, <em>&phi;&#770;<sub>t</sub></em></span><span class="enc-arrow">&rarr;</span><span class="enc-box enc-pi">actor &pi;</span><span class="enc-arrow">&rarr;</span><span class="enc-lat">joint targets</span></div>
+          </div>
+          <p>The latent is reserved for object context. Progress, a command-reset integral, is
+             tracked by a module built for integration.</p>
+        </div>
+        <div class="enc-card enc-implicit">
+          <h4>Implicit <span class="tag is-light">baseline</span></h4>
+          <div class="enc-diagram">
+            <div class="enc-row"><span class="enc-in">privileged state <em>p<sub>t</sub></em> <strong>+ progress <em>&phi;<sub>t</sub></em></strong></span><span class="enc-arrow">&rarr;</span><span class="enc-box">encoder / adaptor</span><span class="enc-arrow">&rarr;</span><span class="enc-lat">joint latent <em>z<sub>t</sub></em></span></div>
+            <div class="enc-row enc-ghost"><span class="enc-in">proprio window (30 frames)</span><span class="enc-arrow">&rarr;</span><span class="enc-box">adaptor must recover both</span><span class="enc-arrow">&rarr;</span><span class="enc-lat"><em>&#7825;<sub>t</sub></em></span></div>
+            <div class="enc-row enc-actor"><span class="enc-in">proprio, <em>&theta;<sub>cmd</sub></em>, <em>&#7825;<sub>t</sub></em></span><span class="enc-arrow">&rarr;</span><span class="enc-box enc-pi">actor &pi;</span><span class="enc-arrow">&rarr;</span><span class="enc-lat">joint targets</span></div>
+          </div>
+          <p>One latent must hold a context quantity that every contact re-evidences <em>and</em> a
+             state quantity that no bounded window can observe.</p>
+        </div>
+      </div>
+
+      <h3 class="title is-5" style="margin-top:2rem">Command tracking under the two encodings</h3>
+      <div class="table-container">
+        <table class="table is-striped is-narrow is-fullwidth metrics-table">
+          <thead>
+            <tr>
+              <th rowspan="2">Rollout</th><th rowspan="2">Progress encoding</th>
+              <th colspan="3">On target (%)</th>
+              <th rowspan="2">Median |&theta;<sub>ach</sub> &minus; &theta;<sub>cmd</sub>| (&deg;)</th>
+              <th rowspan="2">Slope</th><th rowspan="2">R&sup2;</th>
+            </tr>
+            <tr><th>&plusmn;10&deg;</th><th>&plusmn;15&deg;</th><th>&plusmn;20&deg;</th></tr>
+          </thead>
+          <tbody>
+            <tr><td rowspan="2">Teacher (sim)</td><td>Implicit</td><td>99.84</td><td>99.95</td><td>99.95</td><td>1.12</td><td>1.010</td><td>0.998</td></tr>
+            <tr><td>Explicit</td><td>99.48</td><td>99.51</td><td>99.52</td><td>0.68</td><td>1.000</td><td>1.000</td></tr>
+            <tr><td rowspan="2">Student (sim)</td><td>Implicit</td><td>45.54</td><td>64.37</td><td>78.17</td><td>11.05</td><td>1.059</td><td>0.918</td></tr>
+            <tr><td>Explicit</td><td><strong>73.62</strong></td><td><strong>87.71</strong></td><td><strong>93.20</strong></td><td><strong>5.44</strong></td><td>1.005</td><td>0.961</td></tr>
+            <tr><td rowspan="3">Real</td><td>Implicit</td><td>27.78</td><td>36.53</td><td>44.19</td><td>23.62</td><td>0.788</td><td>0.283</td></tr>
+            <tr><td>Explicit</td><td><strong>58.00</strong></td><td><strong>72.00</strong></td><td><strong>81.00</strong></td><td><strong>8.27</strong></td><td>0.922</td><td>0.894</td></tr>
+            <tr><td>Explicit (vision oracle)</td><td>99.86</td><td>100.00</td><td>100.00</td><td>1.14</td><td>0.990</td><td>0.998</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="figure-caption">
+        On target is the fraction of trials with |&theta;<sub>ach</sub> &minus; &theta;<sub>cmd</sub>| within
+        the band; slope and R&sup2; come from a least-squares fit of &theta;<sub>ach</sub> on
+        &theta;<sub>cmd</sub>. The two encodings are equivalent for the privileged teacher; the gap
+        opens only once the latent has to be inferred from proprioception, and widens on hardware.
+      </p>
+
+      <h3 class="title is-5" style="margin-top:2rem">What the adapted latent encodes</h3>
+      <div class="columns is-vcentered">
+        <div class="column is-7">
+          <figure class="paper-figure">
+            <img src="static/images/fig5_latent_pca.png"
+                 alt="Two leading principal components of the adapted latent under explicit and implicit encodings, coloured by object scale and by rotation progress"
+                 loading="lazy">
+          </figure>
+        </div>
+        <div class="column is-5">
+          <div class="content">
+            <p>
+              Two leading principal components of the adapted latent <em>&#7825;<sub>t</sub></em>,
+              pooled over on-policy rollouts, coloured by object scale (top) and by ground-truth
+              progress (bottom).
+            </p>
+            <p>
+              Under the <strong>implicit</strong> encoding the latent is visibly ordered by progress and
+              object scale is smeared along the same curve. Under the <strong>explicit</strong> encoding
+              the latent ignores progress and separates object scales cleanly.
+            </p>
+            <table class="table is-narrow metrics-table probe-table">
+              <thead><tr><th>Linear probe &rho;&sup2;</th><th>Implicit</th><th>Explicit</th></tr></thead>
+              <tbody>
+                <tr><td>Rotation progress &phi;<sub>t</sub></td><td>0.92</td><td>0.08</td></tr>
+                <tr><td>Object scale</td><td>0.81</td><td><strong>0.93</strong></td></tr>
+                <tr><td>Object mass</td><td>0.01</td><td><strong>0.19</strong></td></tr>
+              </tbody>
+            </table>
+            <p class="figure-caption">
+              The implicit latent reproduces internally the progress signal that the explicit design
+              supplies to the actor directly, and pays for it in context fidelity.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== Real robot ===================== -->
+  <section class="section" id="real-robot">
+    <div class="container is-max-desktop">
+      <h2 class="title is-3 has-text-centered">Real-Robot Experiments</h2>
+
+      <h3 class="title is-5">Command Following</h3>
+      <p class="content">
+        One trial per commanded angle on a 16-DoF LEAP Hand, driven by proprioception only.
+        The overlay is the overhead camera's arrow tracker, used for evaluation and never by the
+        policy or the estimator.
+      </p>
+      <!-- Clips: best_runs_20260826/freeze/<angle>deg/<run>/episode_0001_annotated.mp4,
+           copied to static/videos/cmd_<angle>.mp4 with metadata stripped. -->
+      <div class="video-grid cols-3">
+        <figure class="video-cell">
+          <video poster="static/videos/cmd_030_poster.jpg" autoplay muted loop playsinline preload="metadata">
+            <source src="static/videos/cmd_030.mp4" type="video/mp4">
+          </video>
+          <figcaption>cmd +30&deg;</figcaption>
+        </figure>
+        <figure class="video-cell">
+          <video poster="static/videos/cmd_060_poster.jpg" autoplay muted loop playsinline preload="metadata">
+            <source src="static/videos/cmd_060.mp4" type="video/mp4">
+          </video>
+          <figcaption>cmd +60&deg;</figcaption>
+        </figure>
+        <figure class="video-cell">
+          <video poster="static/videos/cmd_090_poster.jpg" autoplay muted loop playsinline preload="metadata">
+            <source src="static/videos/cmd_090.mp4" type="video/mp4">
+          </video>
+          <figcaption>cmd +90&deg;</figcaption>
+        </figure>
+        <figure class="video-cell">
+          <video poster="static/videos/cmd_120_poster.jpg" autoplay muted loop playsinline preload="metadata">
+            <source src="static/videos/cmd_120.mp4" type="video/mp4">
+          </video>
+          <figcaption>cmd +120&deg;</figcaption>
+        </figure>
+        <figure class="video-cell">
+          <video poster="static/videos/cmd_150_poster.jpg" autoplay muted loop playsinline preload="metadata">
+            <source src="static/videos/cmd_150.mp4" type="video/mp4">
+          </video>
+          <figcaption>cmd +150&deg;</figcaption>
+        </figure>
+        <figure class="video-cell">
+          <video poster="static/videos/cmd_180_poster.jpg" autoplay muted loop playsinline preload="metadata">
+            <source src="static/videos/cmd_180.mp4" type="video/mp4">
+          </video>
+          <figcaption>cmd +180&deg;</figcaption>
+        </figure>
+      </div>
+
+      <h3 class="title is-5" style="margin-top:2.5rem">Everyday Objects, Varying Load and Disturbances</h3>
+      <p class="content">
+        The same policy and estimator, unchanged, on objects other than the training cylinder and
+        under conditions the hardware sessions above did not include. Frames cropped from the
+        paper's Fig. 1.
+      </p>
+      <!-- Strips are rows (c), (d), (e) of figures/Fig1_V2.png, cropped by
+           scripts in the website README. To swap in videos later, replace each <img> with a
+           <video> block like the ones in the command-following grid above. -->
+      <figure class="paper-figure strip">
+        <img src="static/images/real_objects.jpg" alt="Rotating a paper cup, a bottle, and a coffee cup" loading="lazy">
+        <figcaption class="figure-caption"><strong>Everyday objects.</strong> Paper cups, a supplement bottle and a plastic coffee cup, each rotated to a commanded angle.</figcaption>
+      </figure>
+      <figure class="paper-figure strip">
+        <img src="static/images/real_beaker.jpg" alt="Rotating a beaker while water is poured into it" loading="lazy">
+        <figcaption class="figure-caption"><strong>Varying load.</strong> Water is poured into a beaker while the hand keeps rotating it; the mass and mass distribution change mid-command.</figcaption>
+      </figure>
+      <figure class="paper-figure strip">
+        <img src="static/images/real_disturbance.jpg" alt="Recovering from a palm-offset disturbance on a box" loading="lazy">
+        <figcaption class="figure-caption"><strong>External disturbance.</strong> A box is pushed off-centre on the palm (red outline) and the hand recovers and completes the rotation.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ===================== Code ===================== -->
+  <section class="section hero is-light" id="code">
+    <div class="container is-max-desktop">
+      <h2 class="title is-3 has-text-centered">Code and checkpoints</h2>
+      <div class="content has-text-centered">
+        <p>
+          <span class="button is-dark is-rounded" disabled>
+            <span class="icon"><i class="fab fa-github"></i></span>
+            <span>Coming soon</span>
+          </span>
+        </p>
+        <p>
+          The training environment, the three-stage training scripts, the evaluation suite, the
+          hardware deployment code, and the teacher, adaptor and rotation-estimator checkpoints will
+          be released upon publication.
+        </p>
+        <p class="figure-caption">
+          The implementation builds on the open-source <em>hora</em> training code and the LEAP Hand
+          simulation assets; both are third-party and cited in the paper.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== BibTeX ===================== -->
+  <section class="section" id="BibTeX">
+    <div class="container is-max-desktop content">
+      <div class="bibtex-header">
+        <h2 class="title">BibTeX</h2>
+        <button class="copy-bibtex-btn" onclick="copyBibTeX()" title="Copy BibTeX to clipboard">
+          <i class="fas fa-copy"></i>
+          <span class="copy-text">Copy</span>
+        </button>
+      </div>
+      <pre id="bibtex-code"><code>@inproceedings{anonymous2027dexorient,
+  title     = {DexOrient: Proprioceptive In-Hand Object Reorientation with Precise Command Following},
+  author    = {Anonymous},
+  booktitle = {Under review},
+  year      = {2027}
+}</code></pre>
+    </div>
+  </section>
+
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <div class="columns is-centered">
+        <div class="column is-8">
+          <div class="content">
+            <p>
+              This page was built using the <a href="https://github.com/eliahuhorwitz/Academic-project-page-template" target="_blank">Academic Project Page Template</a>, which was adopted from the <a href="https://nerfies.github.io" target="_blank">Nerfies</a> project page.
+              This website is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/" target="_blank">Creative Commons Attribution-ShareAlike 4.0 International License</a>.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- No analytics or tracking code in the anonymous version. -->
+
+</body>
+</html>
