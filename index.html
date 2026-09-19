@@ -10,7 +10,7 @@
        Search the whole folder for those strings before every deploy. -->
 
   <meta name="title" content="DexOrient: Proprioceptive In-Hand Object Reorientation with Precise Command Following">
-  <meta name="description" content="A two-stage sim-to-real policy rotates an in-hand object to a commanded angle on a 16-DoF LEAP Hand and stops there without any object-pose sensor, using a learned rotation estimator on joint proprioception alone.">
+  <meta name="description" content="DexOrient rotates an in-hand object to a continuous-valued commanded angle on a 16-DoF LEAP Hand using proprioception alone: an object property adapter infers object properties and a rotation progress estimator, fine-tuned on real-robot rollouts, tracks how far the object has turned.">
   <meta name="keywords" content="dexterous manipulation, in-hand rotation, goal-conditioned, sim-to-real, rapid motor adaptation, LEAP Hand, reinforcement learning, proprioception">
   <meta name="robots" content="noindex, nofollow">
   <meta name="language" content="English">
@@ -18,7 +18,7 @@
   <meta property="og:type" content="article">
   <meta property="og:title" content="DexOrient: Proprioceptive In-Hand Object Reorientation with Precise Command Following">
   <meta property="og:description" content="Rotate an in-hand object to a commanded angle and stop there, with no object-pose sensor, on a 16-DoF LEAP Hand.">
-  <meta property="og:image" content="static/images/fig1_teaser.png">
+  <meta property="og:image" content="static/images/fig1_teaser.jpg">
 
   <title>DexOrient</title>
 
@@ -273,34 +273,27 @@
         <div class="column is-four-fifths">
           <h2 class="title is-3">Abstract</h2>
           <div class="content has-text-justified">
-            <!-- DRAFT: the paper's abstract is not written yet; this is assembled from the
-                 introduction and conclusion of the current draft. Replace with the final abstract. -->
+            <!-- Abstract as submitted (main.tex). -->
             <p>
-              Proprioception alone has been shown to sustain in-hand rotation across diverse objects
-              and to reach a small set of discrete goal orientations. Precisely tracking and stopping
-              at an <strong>arbitrary, continuous-valued commanded angle</strong> without any external
-              observation of the object has remained open.
+              In-hand reorientation enables robots to place an object in the target pose required by
+              downstream tasks. Existing proprioceptive approaches have demonstrated goal-conditioned
+              reorientation, but following continuous-valued commands precisely without external
+              object-pose sensing remains challenging. We present <strong>DexOrient</strong>, a
+              proprioception-only framework for precise, command-guided reorientation of objects in
+              hand. An object property adapter (OPA) infers a latent representation of object
+              properties, while a rotation progress estimator (RPE) predicts per-step angular
+              increments that are accumulated into rotation progress. A policy trained in simulation
+              uses both estimates to rotate the object and stabilize it at the commanded angle. The RPE
+              is fine-tuned on real-robot trajectories collected from its own closed-loop rollouts,
+              reducing the bias in tracking rotation progress.
             </p>
             <p>
-              <strong>DexOrient</strong> is a proprioception-only framework for goal-conditioned
-              in-hand yaw reorientation. Unlike continuous rotation, which depends mainly on object and
-              contact properties, reaching an arbitrary target additionally requires tracking rotation
-              progress from the moment the command is issued, a relative quantity that stays
-              well-defined even when the object's absolute pose is ambiguous. DexOrient estimates the
-              two signals separately: object context is distilled from privileged simulation state by an
-              RMA-style adaptor, while rotation progress is tracked <em>explicitly</em> by a GRU
-              estimator that predicts per-step yaw increments and integrates them from command onset.
-              Because sim-to-real error accumulates over a command, the estimator is further refined on
-              real-robot trajectories.
-            </p>
-            <p>
-              Deployed on an open-source 16-DoF LEAP Hand, DexOrient achieves <strong>82.0% success over
-              200 continuous-valued commands from 22.5&deg; to 180&deg;</strong> (fitted slope 0.909),
-              against 100% when progress is supplied by a vision oracle. Explicitly separating progress
-              from object context roughly doubles real-world success over an implicit encoding, and a
-              latent analysis shows why: an implicit latent spends its capacity on progress at the
-              expense of object context. The system also handles everyday objects and stays
-              stable under shifted mass and external disturbances.
+              On the LEAP Hand, DexOrient achieves <strong>81.0% success within a 20&deg; tolerance for
+              commands from 22.5&deg; to 180&deg;</strong>, up from 57.5% before fine-tuning. In
+              comparison, an RMA-style baseline that jointly encodes object properties and rotation
+              progress in a single latent achieves a lower success rate of 44.0%. Qualitative
+              demonstrations include unseen objects, mid-command mass changes, and external
+              disturbances.
             </p>
           </div>
         </div>
@@ -312,16 +305,16 @@
   <section class="section" id="overview">
     <div class="container is-max-desktop">
       <figure class="paper-figure">
-        <img src="static/images/fig1_teaser.png"
-             alt="DexOrient overview: experimental setup, 180-degree reorientation, generalization to diverse objects, shifted mass distribution, and palm-offset recovery"
+        <img src="static/images/fig1_teaser.jpg"
+             alt="Experimental setup with the LEAP Hand and overhead camera, and frames plus progress traces of a 60-degree and a 150-degree command"
              loading="lazy">
         <figcaption class="figure-caption">
-          <strong>DexOrient enables robust real-world in-hand reorientation.</strong>
-          (a) Experimental setup with a 16-DoF LEAP Hand and overhead camera.
-          (b) Goal-conditioned 180&deg; object reorientation.
-          (c) Generalization across diverse objects.
-          (d) Robust rotation under shifted mass distribution.
-          (e) Recovery from palm-offset disturbances.
+          <strong>DexOrient follows continuous-valued in-hand rotation commands using proprioception alone.</strong>
+          (a) Experimental setup with a 16-DoF LEAP Hand. The overhead camera supplies orientation
+          labels for estimator training and evaluation only, and is not used at deployment.
+          (b) Representative small-angle (<em>&theta;<sub>cmd</sub></em> = 60&deg;, top) and large-angle
+          (<em>&theta;<sub>cmd</sub></em> = 150&deg;, bottom) trials. Frames are labeled with camera
+          measurements and estimated progress from proprioception.
         </figcaption>
       </figure>
     </div>
@@ -333,58 +326,59 @@
       <h2 class="title is-3 has-text-centered">How DexOrient Works</h2>
 
       <figure class="paper-figure">
-        <img src="static/images/fig2_architecture.png"
-             alt="DexOrient system architecture and staged training workflow"
+        <img src="static/images/fig2_pipeline.png"
+             alt="DexOrient architecture and training pipeline: real-world deployment, base policy training, OPA training, and RPE training"
              loading="lazy">
         <figcaption class="figure-caption">
-          <strong>System architecture and staged training workflow.</strong>
-          Yellow and blue backgrounds denote real-world and simulation-side deployment, respectively,
-          and red arrows indicate supervised learning.
-          (a) Final real-world deployment architecture, where the base policy uses proprioception, the
-          context latent, the commanded angle, and estimated rotation progress.
-          (b) Stage-1 training learns the base policy in simulation, with a privileged encoder mapping
-          object information to <em>z<sub>t</sub></em>.
-          (c) Stage-2 context adaptation follows an RMA-style teacher&ndash;student procedure, training
-          the adaptor to infer <em>&#7825;<sub>t</sub></em> from proprioceptive history while the base
-          policy is fixed.
-          (d) The rotation estimator is refined on policy using real-world supervision for
-          proprioceptive progress estimation.
+          <strong>DexOrient architecture and training pipeline.</strong>
+          (a) Real-world deployment pipeline. The object property adapter (OPA) infers a latent
+          <em>&#7825;<sub>t</sub></em>, while the rotation progress estimator (RPE) predicts per-step
+          increments accumulated into progress <em>&phi;&#770;<sub>t</sub></em>.
+          (b) Base policy training with a privileged encoder mapping object information to
+          <em>z<sub>t</sub></em>.
+          (c) Object property adapter training. The OPA learns to match the privileged latent
+          <em>z<sub>t</sub></em> from proprioceptive history.
+          (d) Rotation progress estimator training. Vision-based progress first drives rollouts to
+          train the RPE <em>R</em><sub>0</sub>. With the policy and OPA frozen, the RPE is fine-tuned
+          from <em>R</em><sub>0</sub> on aggregated trajectories. The first refined estimator
+          <em>R</em><sub>1</sub> is deployed in the real world.
         </figcaption>
       </figure>
 
       <div class="pipeline">
         <div class="step">
           <span class="num">1</span>
-          <h4>Base policy with privileged context</h4>
-          <p>A goal-conditioned actor is trained with PPO in simulation on cylinders. Its observation
-             is a short window of joint positions and joint targets, the commanded angle
-             <em>&theta;<sub>cmd</sub></em>, the rotation progress <em>&phi;<sub>t</sub></em>, and a
-             context latent <em>z<sub>t</sub></em> produced by a privileged encoder from object
-             position, scale, mass, friction and centre-of-mass offset. Progress is deliberately kept
-             <em>out</em> of the privileged vector, so the latent describes the object, not the
-             motion. Domain randomization covers scale, mass, centre of mass, friction, and joint
-             stiffness and damping.</p>
+          <h4>Base policy with a privileged encoder</h4>
+          <p>The base policy <em>&pi;</em> is trained with PPO in Isaac Lab on a 7.5 cm cylinder. Its
+             observation is the last three proprioceptive frames (16 joint positions + 16 joint
+             targets each), the commanded angle <em>&theta;<sub>cmd</sub></em>, the rotation progress
+             <em>&phi;<sub>t</sub></em>, and an 8-dimensional latent <em>z<sub>t</sub></em> that a
+             privileged encoder computes from object position, scale, mass, fingertip friction and
+             centre-of-mass offset. Progress is deliberately kept <em>out</em> of the privileged
+             vector. The reward rewards error reduction, proximity to the target, keeping the object
+             at its canonical in-hand location, stillness once on target, and a success bonus after
+             50 held steps. Scale, mass, centre of mass, friction, and joint stiffness and damping
+             are randomized.</p>
         </div>
         <div class="step">
           <span class="num">2</span>
-          <h4>Object-property adaptor (RMA)</h4>
-          <p>Object properties shape the contact dynamics but are not measurable on hardware. A
-             stateless temporal-convolutional adaptor infers the context latent
-             <em>&#7825;<sub>t</sub></em> from a 30-frame proprioceptive history, trained by
-             supervised regression to the teacher latent while the actor and encoder stay frozen.
-             Rollouts use the student's own actions so training sees the deployable state
-             distribution.</p>
+          <h4>Object property adapter (OPA)</h4>
+          <p>The privileged latent is unavailable on hardware. The OPA is a stateless temporal
+             convolutional network that infers <em>&#7825;<sub>t</sub></em> from a window of the 30
+             most recent proprioceptive frames. Because object properties stay nearly constant within
+             an episode, a bounded window carries enough evidence to identify them. With the policy
+             and encoder frozen, the OPA is trained by MSE regression to the privileged latent.</p>
         </div>
         <div class="step">
           <span class="num">3</span>
-          <h4>Rotation-progress estimator</h4>
-          <p>A two-layer GRU with a fixed 8-frame window predicts the signed yaw increment of the
-             last control step from the same proprioceptive frame; an external integrator sums the
-             increments from command onset to give <em>&phi;&#770;<sub>t</sub></em>, which the actor
-             uses to decelerate and stop. The estimator is pretrained with overhead-camera
-             supervision and then fine-tuned on trajectories where its own estimate drives the
-             frozen policy, correcting the drift that sim-to-real error would otherwise
-             accumulate.</p>
+          <h4>Rotation progress estimator (RPE)</h4>
+          <p>Progress accumulates from the command boundary and has no fixed-window observer, so the
+             RPE, a GRU over the last 8 frames, predicts only the per-step yaw increment; an external
+             integrator sums the increments from command onset. A drift-aware loss penalizes both the
+             per-step error and its running sum over 60-step horizons. The RPE is trained on
+             real-robot data labeled by the overhead camera: <em>R</em><sub>0</sub> on 400
+             camera-driven commands, then fine-tuned DAgger-style on 200 commands collected with the
+             estimator itself in the loop, giving <em>R</em><sub>1</sub>, the deployed estimator.</p>
         </div>
       </div>
 
@@ -392,16 +386,20 @@
       <div class="content">
         <ul>
           <li><strong>Commands</strong> are sampled uniformly from [22.5&deg;, 180&deg;]. Simulation
-              uses 8,192 commands with a 200-step budget; hardware uses 200 commands with a fixed
-              control-step budget.</li>
-          <li><strong>Success</strong>: the settled achieved angle
-              <em>&theta;<sub>ach</sub></em> stays within 20&deg; of the command for at least 10
-              consecutive control steps. We also report on-target rates at 10&deg; and 15&deg;, the
-              median terminal error, and the slope and R&sup2; of a least-squares fit of
-              <em>&theta;<sub>ach</sub></em> on <em>&theta;<sub>cmd</sub></em>.</li>
-          <li><strong>Ground truth</strong> on hardware comes from an overhead RGB camera tracking a
-              dark arrow on the object's top face. It is used only for estimator training and
-              evaluation, never by the deployed policy.</li>
+              evaluates 8,192 commands with a 200-step budget; hardware evaluates 200 commands with a
+              150-step budget, at 20 Hz in both.</li>
+          <li><strong>Achieved angle</strong> <em>&theta;<sub>ach</sub></em> is the mean progress over
+              the longest interval in the last 50 steps whose range stays within 20&deg;; if that
+              interval is shorter than 10 steps the trial has not settled and counts as a failure.
+              A trial succeeds if |<em>&theta;<sub>ach</sub></em> &minus; <em>&theta;<sub>cmd</sub></em>|
+              is within 10&deg;, 15&deg; or 20&deg;. We also report the median terminal error and the
+              slope, intercept and R&sup2; of a least-squares fit of achieved on commanded angle.</li>
+          <li><strong>Ground truth</strong> on hardware comes from an overhead RealSense camera
+              tracking a dark arrow on the object's top face. It labels estimator training data and
+              scores trials; the deployed system never sees it.</li>
+          <li><strong>Timer baseline.</strong> A HORA-style continuous-rotation policy that never
+              observes the command, stopped by a quadratic time-to-angle map fitted on 236 hardware
+              trials. It tests whether elapsed time alone can stand in for progress.</li>
         </ul>
       </div>
     </div>
@@ -413,42 +411,54 @@
       <h2 class="title is-3 has-text-centered">Command Tracking on the Real Hand</h2>
 
       <div class="kpi-row">
-        <div class="kpi"><div class="val">82.0%</div><div class="lab">deployed, proprioception only<br>200 commands, 22.5&deg;&ndash;180&deg;</div></div>
-        <div class="kpi"><div class="val">100%</div><div class="lab">same policy, progress from<br>vision oracle</div></div>
-        <div class="kpi"><div class="val">0.909</div><div class="lab">fitted slope<br>&theta;<sub>ach</sub> vs. &theta;<sub>cmd</sub> (R&sup2; 0.880)</div></div>
-        <div class="kpi"><div class="val">&minus;2.9&deg;</div><div class="lab">median terminal error</div></div>
+        <div class="kpi"><div class="val">81.0%</div><div class="lab">deployed, proprioception only<br>200 commands, 22.5&deg;&ndash;180&deg;, &plusmn;20&deg;</div></div>
+        <div class="kpi"><div class="val">100%</div><div class="lab">same policy, progress from<br>the vision oracle</div></div>
+        <div class="kpi"><div class="val">57.5% &rarr; 81.0%</div><div class="lab">one round of on-policy<br>RPE fine-tuning</div></div>
+        <div class="kpi"><div class="val">&asymp;10&deg;</div><div class="lab">RPE median progress error,<br>vs. &gt;40&deg; for a timer</div></div>
       </div>
 
       <figure class="paper-figure">
         <img src="static/images/fig3_results.png"
-             alt="Command tracking performance: vision oracle, deployed policy, and rotation-estimator benchmark"
+             alt="Command tracking performance: vision oracle, deployed policy, estimator versus timer error, and fine-tuning rounds"
              loading="lazy">
         <figcaption class="figure-caption">
           <strong>Command tracking performance and estimator error.</strong>
-          (a) Vision oracle: the deployed actor and adaptor, with ground-truth progress supplied by the
-          camera (100% success, slope 0.995, R&sup2; 0.997). The base policy and context branch are not
-          the bottleneck.
-          (b) Deployed policy: the full proprioception-only system with progress from the learned
-          rotation estimator, one point per command (82.0% success). The gap to (a) is attributable to
-          rotation-progress estimation.
-          (c) Rotation-estimator benchmark: success rate of the learned estimator against two
-          closed-form linear baselines fitted on the same data, scored on held-out hardware sessions.
-          The per-step accuracy of the baselines is similar; what the learned module supplies is
-          errors that do not accumulate.
+          (a) Vision oracle: the deployed policy with progress measured by the camera (100% success).
+          (b) Deployed policy: the proprioception-only method with progress from the rotation progress
+          estimator (81.0% success). Shaded bands in (a) and (b) mark the &plusmn;20&deg; success
+          tolerance.
+          (c) Open-loop estimation error of DexOrient on a held-out hardware session and of the Timer
+          baseline of the continuous-rotation policy.
+          (d) Open-loop estimation error of <em>R</em><sub>0</sub>, <em>R</em><sub>1</sub> (DexOrient),
+          and <em>R</em><sub>2</sub> on the same held-out session. In (c) and (d), lines show the
+          median and shaded bands the interquartile range.
         </figcaption>
       </figure>
 
-      <figure class="paper-figure" style="margin-top:2rem">
-        <img src="static/images/fig4_progress.jpg"
-             alt="Frames and progress traces of a 60-degree and a 150-degree command"
-             loading="lazy">
-        <figcaption class="figure-caption">
-          <strong>Reorientation of a cylinder with precise command tracking.</strong>
-          A small-angle (60&deg;, top) and a large-angle (150&deg;, bottom) trial. Frames are labelled
-          with camera-measured and estimator-predicted progress; the traces below show both signals
-          against time with the command as the dashed line.
-        </figcaption>
-      </figure>
+      <div class="content has-text-justified" style="margin-top:1.5rem">
+        <p>
+          <strong>Where the remaining error comes from.</strong> With the camera supplying progress,
+          the same base policy and OPA succeed on every command, so manipulation is not the
+          bottleneck. Replacing the camera with the RPE gives 81.0% over 200 commands (slope 0.92,
+          R&sup2; 0.89, median terminal error 8.3&deg;). The gap is progress estimation.
+        </p>
+        <p>
+          <strong>Time is not a substitute for proprioception.</strong> The Timer baseline's error never
+          converges: its median rises from about 15&deg; after 20 control steps to over 40&deg; near
+          the end, because the continuous-rotation policy needs anywhere from 98 to 195 steps to turn
+          the object by 180&deg;. The RPE's error settles at about 10&deg;.
+        </p>
+        <p>
+          <strong>On-policy fine-tuning removes a systematic bias.</strong> The initial estimator
+          <em>R</em><sub>0</sub>, trained on camera-driven rollouts, runs ahead of the camera for small
+          commands and behind for large ones once it drives the policy itself (fitted slope 1.25,
+          57.5% success). One DAgger-style round on 200 self-collected commands lowers the early error
+          peak from 14.0&deg; to 9.4&deg; and lifts success to 81.0%, roughly halving both the median
+          terminal error and the mean estimation error. A second round reaches 85.0% in closed loop
+          but does not improve the estimator itself and adds a positive offset, so
+          <em>R</em><sub>1</sub> is deployed everywhere.
+        </p>
+      </div>
     </div>
   </section>
 
@@ -457,35 +467,37 @@
     <div class="container is-max-desktop">
       <h2 class="title is-3 has-text-centered">Explicit vs. Implicit Encoding of Rotation Progress</h2>
       <p class="content has-text-justified">
-        The deployable actor needs two partially observed quantities: <em>what</em> object it is
-        holding (context) and <em>how far</em> it has already turned since the command (progress).
-        Where should progress live? We compare our <strong>explicit</strong> design, in which a
-        dedicated estimator predicts progress and feeds it straight to the actor, against an
-        <strong>implicit</strong> design that appends progress to the privileged state, so a single
-        8-dimensional latent must carry object context and progress together and the adaptor must
-        recover both from proprioceptive history.
+        RMA-style distillation puts every unobserved quantity into one privileged vector and recovers
+        all of them with a single adaptation module. Goal-conditioned reorientation needs rotation
+        progress to decide when to stop, so the direct extension appends
+        <em>&phi;<sub>t</sub></em> to the privileged state and asks one 8-dimensional latent to carry
+        object properties and progress together (<strong>implicit</strong>). DexOrient instead keeps
+        progress out of the latent and supplies it to the policy through a dedicated estimator
+        (<strong>explicit</strong>). A separate base policy is trained for each encoding with the same
+        PPO procedure; the implicit adapter uses the same GRU backbone as the RPE so that capacity is
+        comparable.
       </p>
 
       <div class="enc-grid">
         <div class="enc-card enc-explicit">
-          <h4>Explicit <span class="tag is-info is-light">ours</span></h4>
+          <h4>Explicit <span class="tag is-info is-light">DexOrient</span></h4>
           <div class="enc-diagram">
-            <div class="enc-row"><span class="enc-in">privileged state <em>p<sub>t</sub></em><br><small>position, scale, mass, friction, CoM</small></span><span class="enc-arrow">&rarr;</span><span class="enc-box">encoder / adaptor</span><span class="enc-arrow">&rarr;</span><span class="enc-lat">context latent <em>z<sub>t</sub></em></span></div>
-            <div class="enc-row"><span class="enc-in">proprio window (8 frames)</span><span class="enc-arrow">&rarr;</span><span class="enc-box enc-est">GRU estimator + integrator</span><span class="enc-arrow">&rarr;</span><span class="enc-lat">progress <em>&phi;&#770;<sub>t</sub></em></span></div>
-            <div class="enc-row enc-actor"><span class="enc-in">proprio, <em>&theta;<sub>cmd</sub></em>, <em>z<sub>t</sub></em>, <em>&phi;&#770;<sub>t</sub></em></span><span class="enc-arrow">&rarr;</span><span class="enc-box enc-pi">actor &pi;</span><span class="enc-arrow">&rarr;</span><span class="enc-lat">joint targets</span></div>
+            <div class="enc-row"><span class="enc-in">privileged state <em>p<sub>t</sub></em><br><small>position, scale, mass, friction, CoM</small></span><span class="enc-arrow">&rarr;</span><span class="enc-box">encoder <em>G</em> / OPA (TConv, 30 frames)</span><span class="enc-arrow">&rarr;</span><span class="enc-lat">object latent <em>z<sub>t</sub></em></span></div>
+            <div class="enc-row"><span class="enc-in">proprio window (8 frames)</span><span class="enc-arrow">&rarr;</span><span class="enc-box enc-est">RPE (GRU) + &Sigma;</span><span class="enc-arrow">&rarr;</span><span class="enc-lat">progress <em>&phi;&#770;<sub>t</sub></em></span></div>
+            <div class="enc-row enc-actor"><span class="enc-in">proprio, <em>&theta;<sub>cmd</sub></em>, <em>z<sub>t</sub></em>, <em>&phi;&#770;<sub>t</sub></em></span><span class="enc-arrow">&rarr;</span><span class="enc-box enc-pi">base policy &pi;</span><span class="enc-arrow">&rarr;</span><span class="enc-lat">joint targets</span></div>
           </div>
-          <p>The latent is reserved for object context. Progress, a command-reset integral, is
-             tracked by a module built for integration.</p>
+          <p>The latent is reserved for object properties, which every contact re-evidences. Progress, a
+             command-reset integral, is handled by a module built for integration.</p>
         </div>
         <div class="enc-card enc-implicit">
-          <h4>Implicit <span class="tag is-light">baseline</span></h4>
+          <h4>Implicit <span class="tag is-light">RMA-style baseline</span></h4>
           <div class="enc-diagram">
-            <div class="enc-row"><span class="enc-in">privileged state <em>p<sub>t</sub></em> <strong>+ progress <em>&phi;<sub>t</sub></em></strong></span><span class="enc-arrow">&rarr;</span><span class="enc-box">encoder / adaptor</span><span class="enc-arrow">&rarr;</span><span class="enc-lat">joint latent <em>z<sub>t</sub></em></span></div>
-            <div class="enc-row enc-ghost"><span class="enc-in">proprio window (30 frames)</span><span class="enc-arrow">&rarr;</span><span class="enc-box">adaptor must recover both</span><span class="enc-arrow">&rarr;</span><span class="enc-lat"><em>&#7825;<sub>t</sub></em></span></div>
-            <div class="enc-row enc-actor"><span class="enc-in">proprio, <em>&theta;<sub>cmd</sub></em>, <em>&#7825;<sub>t</sub></em></span><span class="enc-arrow">&rarr;</span><span class="enc-box enc-pi">actor &pi;</span><span class="enc-arrow">&rarr;</span><span class="enc-lat">joint targets</span></div>
+            <div class="enc-row"><span class="enc-in">privileged state <em>p<sub>t</sub></em> <strong>+ progress <em>&phi;<sub>t</sub></em></strong></span><span class="enc-arrow">&rarr;</span><span class="enc-box">encoder <em>G</em><sup>I</sup></span><span class="enc-arrow">&rarr;</span><span class="enc-lat">joint latent <em>z</em><sup>I</sup><sub>t</sub></span></div>
+            <div class="enc-row enc-ghost"><span class="enc-in">proprio window</span><span class="enc-arrow">&rarr;</span><span class="enc-box">GRU adapter must recover both</span><span class="enc-arrow">&rarr;</span><span class="enc-lat"><em>&#7825;</em><sup>I</sup><sub>t</sub></span></div>
+            <div class="enc-row enc-actor"><span class="enc-in">proprio, <em>&theta;<sub>cmd</sub></em>, <em>&#7825;</em><sup>I</sup><sub>t</sub></span><span class="enc-arrow">&rarr;</span><span class="enc-box enc-pi">base policy &pi;</span><span class="enc-arrow">&rarr;</span><span class="enc-lat">joint targets</span></div>
           </div>
-          <p>One latent must hold a context quantity that every contact re-evidences <em>and</em> a
-             state quantity that no bounded window can observe.</p>
+          <p>One latent must hold a property that a bounded window can identify <em>and</em> a
+             history-dependent quantity that no bounded window can observe.</p>
         </div>
       </div>
 
@@ -494,63 +506,68 @@
         <table class="table is-striped is-narrow is-fullwidth metrics-table">
           <thead>
             <tr>
-              <th rowspan="2">Rollout</th><th rowspan="2">Progress encoding</th>
-              <th colspan="3">On target (%)</th>
+              <th rowspan="2">Rollout</th><th rowspan="2">Progress encoding</th><th rowspan="2"><em>N</em></th>
+              <th colspan="3">Success rate (%)</th>
+              <th rowspan="2">Mean |&phi;<sub>t</sub> &minus; &phi;&#770;<sub>t</sub>| (&deg;)</th>
               <th rowspan="2">Median |&theta;<sub>ach</sub> &minus; &theta;<sub>cmd</sub>| (&deg;)</th>
-              <th rowspan="2">Slope</th><th rowspan="2">R&sup2;</th>
+              <th rowspan="2">Slope</th><th rowspan="2">Intercept (&deg;)</th><th rowspan="2">R&sup2;</th>
             </tr>
             <tr><th>&plusmn;10&deg;</th><th>&plusmn;15&deg;</th><th>&plusmn;20&deg;</th></tr>
           </thead>
           <tbody>
-            <tr><td rowspan="2">Teacher (sim)</td><td>Implicit</td><td>99.84</td><td>99.95</td><td>99.95</td><td>1.12</td><td>1.010</td><td>0.998</td></tr>
-            <tr><td>Explicit</td><td>99.48</td><td>99.51</td><td>99.52</td><td>0.68</td><td>1.000</td><td>1.000</td></tr>
-            <tr><td rowspan="2">Student (sim)</td><td>Implicit</td><td>45.54</td><td>64.37</td><td>78.17</td><td>11.05</td><td>1.059</td><td>0.918</td></tr>
-            <tr><td>Explicit</td><td><strong>73.62</strong></td><td><strong>87.71</strong></td><td><strong>93.20</strong></td><td><strong>5.44</strong></td><td>1.005</td><td>0.961</td></tr>
-            <tr><td rowspan="3">Real</td><td>Implicit</td><td>27.78</td><td>36.53</td><td>44.19</td><td>23.62</td><td>0.788</td><td>0.283</td></tr>
-            <tr><td>Explicit</td><td><strong>58.00</strong></td><td><strong>72.00</strong></td><td><strong>81.00</strong></td><td><strong>8.27</strong></td><td>0.922</td><td>0.894</td></tr>
-            <tr><td>Explicit (vision oracle)</td><td>99.86</td><td>100.00</td><td>100.00</td><td>1.14</td><td>0.990</td><td>0.998</td></tr>
+            <tr><td rowspan="2">Teacher (sim)</td><td>Implicit</td><td>8192</td><td>99.84</td><td>99.95</td><td>99.95</td><td>N/A</td><td>1.12</td><td>1.010</td><td>&minus;1.09</td><td>0.998</td></tr>
+            <tr><td>Explicit</td><td>8192</td><td>99.48</td><td>99.51</td><td>99.52</td><td>N/A</td><td>0.68</td><td>1.000</td><td>0.44</td><td>1.000</td></tr>
+            <tr><td rowspan="2">Student (sim)</td><td>Implicit</td><td>8192</td><td>45.54</td><td>64.37</td><td>78.17</td><td>N/A</td><td>11.05</td><td>1.059</td><td>2.11</td><td>0.918</td></tr>
+            <tr><td>Explicit (<em>R</em><sub>1</sub>)</td><td>8192</td><td><strong>73.62</strong></td><td><strong>87.71</strong></td><td><strong>93.20</strong></td><td>5.29</td><td><strong>5.44</strong></td><td>1.005</td><td>0.81</td><td>0.961</td></tr>
+            <tr><td rowspan="4">Real</td><td>Explicit (vision oracle)</td><td>730</td><td>99.86</td><td>100.00</td><td>100.00</td><td>N/A</td><td>1.14</td><td>0.990</td><td>0.71</td><td>0.998</td></tr>
+            <tr><td>Implicit</td><td>200</td><td>28.00</td><td>36.50</td><td>44.00</td><td>N/A</td><td>23.62</td><td>0.788</td><td>0.82</td><td>0.283</td></tr>
+            <tr><td>Explicit (<em>R</em><sub>0</sub>)</td><td>200</td><td>26.50</td><td>42.50</td><td>57.50</td><td>20.79</td><td>16.91</td><td>1.248</td><td>&minus;13.78</td><td>0.837</td></tr>
+            <tr><td>Explicit (<em>R</em><sub>1</sub>, ours)</td><td>200</td><td><strong>58.00</strong></td><td><strong>72.00</strong></td><td><strong>81.00</strong></td><td><strong>10.60</strong></td><td><strong>8.27</strong></td><td>0.920</td><td>4.25</td><td>0.894</td></tr>
           </tbody>
         </table>
       </div>
       <p class="figure-caption">
-        On target is the fraction of trials with |&theta;<sub>ach</sub> &minus; &theta;<sub>cmd</sub>| within
-        the band; slope and R&sup2; come from a least-squares fit of &theta;<sub>ach</sub> on
-        &theta;<sub>cmd</sub>. The two encodings are equivalent for the privileged teacher; the gap
-        opens only once the latent has to be inferred from proprioception, and widens on hardware.
+        Teacher rows use privileged inputs in simulation; Student rows replace them with estimates. On
+        hardware, the vision oracle supplies camera-measured progress, and <em>R</em><sub>0</sub>,
+        <em>R</em><sub>1</sub> are the RPE checkpoints before and after one fine-tuning round. The mean
+        progress error is measured against the simulator or the camera and is N/A for rows without a
+        rotation progress estimate. The two teachers are equivalent; the gap opens only once the latent
+        has to be inferred from proprioception (93.2% vs. 78.2% in simulation) and widens on hardware
+        (81.0% vs. 44.0%, R&sup2; 0.89 vs. 0.28).
       </p>
 
       <h3 class="title is-5" style="margin-top:2rem">What the adapted latent encodes</h3>
       <div class="columns is-vcentered">
-        <div class="column is-7">
+        <div class="column is-6">
           <figure class="paper-figure">
-            <img src="static/images/fig5_latent_pca.png"
-                 alt="Two leading principal components of the adapted latent under explicit and implicit encodings, coloured by object scale and by rotation progress"
+            <img src="static/images/fig4_tsne.png"
+                 alt="t-SNE of adapted latents under implicit and explicit encoding, coloured by object scale and by rotation progress, plus validation NMSE curves"
                  loading="lazy">
           </figure>
         </div>
-        <div class="column is-5">
+        <div class="column is-6">
           <div class="content">
             <p>
-              Two leading principal components of the adapted latent <em>&#7825;<sub>t</sub></em>,
-              pooled over on-policy rollouts, coloured by object scale (top) and by ground-truth
-              progress (bottom).
+              <strong>Latent structure.</strong> (a), (b) t-SNE of the adapted latents under implicit
+              and explicit encoding, coloured by object scale. (c) The implicit encoding of (a),
+              coloured by rotation progress <em>&phi;<sub>t</sub></em>. (d) Validation NMSE (mean
+              &plusmn; SD over three seeds); the dashed line marks the constant mean predictor.
             </p>
             <p>
-              Under the <strong>implicit</strong> encoding the latent is visibly ordered by progress and
-              object scale is smeared along the same curve. Under the <strong>explicit</strong> encoding
-              the latent ignores progress and separates object scales cleanly.
+              Under the <strong>implicit</strong> encoding object scales overlap, while the same points
+              coloured by progress show a clear gradient: the latent is organized mainly by progress.
+              The <strong>explicit</strong> encoding orders the scales along a clear trend.
             </p>
             <table class="table is-narrow metrics-table probe-table">
-              <thead><tr><th>Linear probe &rho;&sup2;</th><th>Implicit</th><th>Explicit</th></tr></thead>
+              <thead><tr><th>Validation NMSE (3 seeds)</th><th>Implicit</th><th>Explicit</th></tr></thead>
               <tbody>
-                <tr><td>Rotation progress &phi;<sub>t</sub></td><td>0.92</td><td>0.08</td></tr>
-                <tr><td>Object scale</td><td>0.81</td><td><strong>0.93</strong></td></tr>
-                <tr><td>Object mass</td><td>0.01</td><td><strong>0.19</strong></td></tr>
+                <tr><td>Adapted latent vs. privileged latent</td><td>1.223 &plusmn; 0.320</td><td><strong>0.547 &plusmn; 0.047</strong></td></tr>
+                <tr><td>Constant mean predictor</td><td colspan="2" style="text-align:center">1.000</td></tr>
               </tbody>
             </table>
             <p class="figure-caption">
-              The implicit latent reproduces internally the progress signal that the explicit design
-              supplies to the actor directly, and pays for it in context fidelity.
+              The implicit adapter stays at the mean-predictor level throughout training and ends
+              above it, so it recovers no more than a constant average latent would.
             </p>
           </div>
         </div>
@@ -610,26 +627,24 @@
         </figure>
       </div>
 
-      <h3 class="title is-5" style="margin-top:2.5rem">Everyday Objects, Varying Load and Disturbances</h3>
+      <h3 class="title is-5" style="margin-top:2.5rem">Generalization and Robustness (qualitative)</h3>
       <p class="content">
-        The same policy and estimator, unchanged, on objects other than the training cylinder and
-        under conditions the hardware sessions above did not include. Frames cropped from the
-        paper's Fig. 1.
+        The deployed system, unchanged, in three settings beyond the quantitative protocol: everyday
+        objects in place of the training cylinder, a mass change during a command, and an external
+        disturbance. In each case the hand completes the rotation and stabilizes the object without
+        dropping it.
       </p>
-      <!-- Strips are rows (c), (d), (e) of figures/Fig1_V2.png, cropped by
-           scripts in the website README. To swap in videos later, replace each <img> with a
-           <video> block like the ones in the command-following grid above. -->
-      <figure class="paper-figure strip">
-        <img src="static/images/real_objects.jpg" alt="Rotating a paper cup, a bottle, and a coffee cup" loading="lazy">
-        <figcaption class="figure-caption"><strong>Everyday objects.</strong> Paper cups, a supplement bottle and a plastic coffee cup, each rotated to a commanded angle.</figcaption>
-      </figure>
-      <figure class="paper-figure strip">
-        <img src="static/images/real_beaker.jpg" alt="Rotating a beaker while water is poured into it" loading="lazy">
-        <figcaption class="figure-caption"><strong>Varying load.</strong> Water is poured into a beaker while the hand keeps rotating it; the mass and mass distribution change mid-command.</figcaption>
-      </figure>
-      <figure class="paper-figure strip">
-        <img src="static/images/real_disturbance.jpg" alt="Recovering from a palm-offset disturbance on a box" loading="lazy">
-        <figcaption class="figure-caption"><strong>External disturbance.</strong> A box is pushed off-centre on the palm (red outline) and the hand recovers and completes the rotation.</figcaption>
+      <figure class="paper-figure">
+        <img src="static/images/fig5_generalization.jpg"
+             alt="Everyday objects, water poured into a container mid-command, and recovery after the object is tilted off the palm centre"
+             loading="lazy">
+        <figcaption class="figure-caption">
+          <strong>Generalization and manipulation robustness in qualitative real-world deployments.</strong>
+          (a) Deployment on everyday objects unseen during training, which differ from the training
+          cylinder (leftmost). (b) Mass change during manipulation: water is poured into the held
+          container mid-command. (c) Recovery after the object is manually tilted away from the palm
+          center.
+        </figcaption>
       </figure>
     </div>
   </section>
