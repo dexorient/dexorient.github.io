@@ -51,20 +51,7 @@
       padding: 0.5rem 1rem;
       text-align: center;
     }
-    .teaser-placeholder {
-      aspect-ratio: 16 / 9;
-      width: 100%;
-      border: 2px dashed #b5b5b5;
-      border-radius: 12px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      color: #7a7a7a;
-      background: #fafafa;
-      gap: 0.5rem;
-    }
-    .teaser-placeholder i { font-size: 2.5rem; }
+    .teaser video { display: block; width: 100%; height: auto; border-radius: 12px; background: #111; }
     .pipeline {
       display: grid;
       grid-template-columns: 1fr;
@@ -103,32 +90,6 @@
     .paper-figure.strip { margin-top: 1.25rem; }
     .paper-figure.strip .figure-caption { margin-top: 0.4rem; }
     #method .paper-figure { margin-bottom: 0; }
-    .video-wide video { display: block; width: 100%; height: auto; border-radius: 8px; background: #111; }
-    /* Real-robot clip grids */
-    .video-grid { display: grid; gap: 1rem; margin-top: 1rem; }
-    .video-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
-    .video-grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
-    @media (max-width: 768px) {
-      .video-grid.cols-3 { grid-template-columns: repeat(2, 1fr); }
-    }
-    @media (max-width: 480px) {
-      .video-grid.cols-3, .video-grid.cols-2 { grid-template-columns: 1fr; }
-    }
-    .video-cell { margin: 0; }
-    .video-cell video, .video-cell .video-placeholder {
-      display: block; width: 100%; aspect-ratio: 1 / 1;
-      border-radius: 8px; background: #111; object-fit: cover;
-    }
-    .video-cell figcaption {
-      text-align: center; font-size: 0.9rem; font-weight: 600; color: #363636;
-      margin-top: 0.4rem;
-    }
-    .video-cell .video-placeholder {
-      border: 2px dashed #b5b5b5; background: #fafafa; color: #7a7a7a;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      gap: 0.4rem; font-size: 0.85rem; text-align: center; padding: 0.5rem;
-    }
-    .video-cell .video-placeholder i { font-size: 2rem; }
     /* Explicit vs implicit encoding cards */
     .enc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem; }
     @media (max-width: 900px) { .enc-grid { grid-template-columns: 1fr; } }
@@ -228,7 +189,7 @@
 
                 <!-- Video: local file only. Do not use a YouTube account that can be traced to an author. -->
                 <span class="link-block">
-                  <a href="#real-robot"
+                  <a href="#video"
                      class="external-link button is-normal is-rounded is-dark">
                     <span class="icon"><i class="fas fa-video"></i></span>
                     <span>Videos</span>
@@ -242,24 +203,14 @@
     </div>
   </section>
 
-  <!-- ===================== Teaser =====================
-       Hidden on the live page until static/videos/teaser.mp4 exists. To enable: put the file in
-       place, delete this comment wrapper, and replace the placeholder div with the <video> tag
-       below. -->
-  <section class="hero teaser" id="video" hidden>
+  <!-- ===================== Teaser ===================== -->
+  <section class="hero teaser" id="video">
     <div class="container is-max-desktop">
       <div class="hero-body">
-        <!-- Replace the placeholder with:
-             <video id="teaser" autoplay controls muted loop playsinline preload="metadata">
-               <source src="static/videos/teaser.mp4" type="video/mp4">
-             </video>
-             Suggested content: real LEAP Hand, commands 45 / 90 / 180 deg, overlay of
-             commanded vs. estimated angle, then the hand freezes on the estimator's stop. -->
-        <div class="teaser-placeholder">
-          <i class="fas fa-film"></i>
-          <span><strong>Teaser video</strong> &mdash; <span class="todo">TODO</span> static/videos/teaser.mp4</span>
-          <span style="font-size:0.85rem">Real-hand rollouts at 45&deg;, 90&deg; and 180&deg;, stopped by the rotation estimator. No faces, no lab background, no logos.</span>
-        </div>
+        <!-- Supplementary video, re-encoded (x264 CRF 25, AAC 128k) with metadata stripped. -->
+        <video id="teaser" poster="static/videos/teaser_poster.jpg" controls playsinline preload="metadata">
+          <source src="static/videos/teaser.mp4" type="video/mp4">
+        </video>
         <h2 class="subtitle has-text-centered" style="margin-top:1rem">
           Told to turn the object by <em>N</em> degrees, the LEAP Hand turns it by <em>N</em> degrees and stops,
           using nothing but its own joint readings.
@@ -303,7 +254,7 @@
     </div>
   </section>
 
-  <!-- ===================== Overview figure (paper Fig. 1) + real-robot clips ===================== -->
+  <!-- ===================== Overview figure (paper Fig. 1) ===================== -->
   <section class="section" id="real-robot">
     <div class="container is-max-desktop">
       <h2 class="title is-3 has-text-centered">Real-World Command Following</h2>
@@ -321,50 +272,6 @@
           measurements and estimated progress from proprioception.
         </figcaption>
       </figure>
-
-      <!-- Clips: DexPaper/videos/r1..r6.mp4 (metadata stripped), one trial per command. -->
-      <div class="video-grid cols-3" style="margin-top:2rem">
-        <figure class="video-cell">
-          <video poster="static/videos/r1_poster.jpg" autoplay muted loop playsinline preload="metadata">
-            <source src="static/videos/r1.mp4" type="video/mp4">
-          </video>
-          <figcaption>cmd +30&deg;</figcaption>
-        </figure>
-        <figure class="video-cell">
-          <video poster="static/videos/r2_poster.jpg" autoplay muted loop playsinline preload="metadata">
-            <source src="static/videos/r2.mp4" type="video/mp4">
-          </video>
-          <figcaption>cmd +60&deg;</figcaption>
-        </figure>
-        <figure class="video-cell">
-          <video poster="static/videos/r3_poster.jpg" autoplay muted loop playsinline preload="metadata">
-            <source src="static/videos/r3.mp4" type="video/mp4">
-          </video>
-          <figcaption>cmd +90&deg;</figcaption>
-        </figure>
-        <figure class="video-cell">
-          <video poster="static/videos/r4_poster.jpg" autoplay muted loop playsinline preload="metadata">
-            <source src="static/videos/r4.mp4" type="video/mp4">
-          </video>
-          <figcaption>cmd +120&deg;</figcaption>
-        </figure>
-        <figure class="video-cell">
-          <video poster="static/videos/r5_poster.jpg" autoplay muted loop playsinline preload="metadata">
-            <source src="static/videos/r5.mp4" type="video/mp4">
-          </video>
-          <figcaption>cmd +150&deg;</figcaption>
-        </figure>
-        <figure class="video-cell">
-          <video poster="static/videos/r6_poster.jpg" autoplay muted loop playsinline preload="metadata">
-            <source src="static/videos/r6.mp4" type="video/mp4">
-          </video>
-          <figcaption>cmd +180&deg;</figcaption>
-        </figure>
-      </div>
-      <p class="figure-caption has-text-centered" style="margin-top:0.75rem">
-        One trial per command on the real hand. Overlay: camera-measured angle (orange) and the
-        proprioceptive estimate (blue). The camera is used for evaluation only.
-      </p>
     </div>
   </section>
 
@@ -422,17 +329,6 @@
           (d) Open-loop estimation error of <em>R</em><sub>0</sub>, <em>R</em><sub>1</sub> (DexOrient),
           and <em>R</em><sub>2</sub> on the same held-out session. In (c) and (d), lines show the
           median and shaded bands the interquartile range.
-        </figcaption>
-      </figure>
-
-      <!-- Clip: DexPaper/videos/comparison.mp4 (metadata stripped), animated version of Fig. 3(c). -->
-      <figure class="paper-figure video-wide" style="margin-top:2rem">
-        <video poster="static/videos/comparison_poster.jpg" autoplay muted loop playsinline preload="metadata">
-          <source src="static/videos/comparison.mp4" type="video/mp4">
-        </video>
-        <figcaption class="figure-caption has-text-centered">
-          Progress estimation error over a command: Timer baseline vs. DexOrient estimator
-          (animated view of Fig. 3(c); lines show the median, shaded bands the interquartile range).
         </figcaption>
       </figure>
     </div>
